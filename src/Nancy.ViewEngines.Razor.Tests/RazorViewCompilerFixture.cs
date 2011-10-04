@@ -1,4 +1,6 @@
-﻿namespace Nancy.ViewEngines.Razor.Tests
+﻿using System.Dynamic;
+
+namespace Nancy.ViewEngines.Razor.Tests
 {
     using System;
     using System.IO;
@@ -79,5 +81,44 @@
             // Then
             stream.ShouldEqual("<h1>Hello Mr. test</h1> this is partial");
         }
+
+        [Fact]
+        public void Should_support_files_with_the_liquid_extensions()
+        {
+            // Given, When
+            var extensions = this.engine.Extensions;
+
+            // Then
+            extensions.ShouldHaveCount(1);
+            extensions.ShouldEqualSequence(new[] { "cshtml" });
+        }
+        
+        [Fact]
+        public void RenderView_should_accept_a_model_and_read_from_it_into_the_stream()
+        {
+            // Given
+            var location = new ViewLocationResult(
+                string.Empty,
+                string.Empty,
+                "cshtml",
+                () => new StringReader(@"<h1>Hello Mr. @Model.Name</h1>")
+            );
+
+            var stream = new MemoryStream();
+
+            //Razor view engine can't work with  anonymous objects, 
+            //so lets create ExpandoObject for our model
+            dynamic model = new ExpandoObject();
+            model.Name = "test";
+
+            // When
+            var response = this.engine.RenderView(location, model, this.renderContext);
+            response.Contents.Invoke(stream);
+
+            // Then
+            stream.ShouldEqual("<h1>Hello Mr. test</h1>");
+        }
+
+        //add more tests for sections
     }
 }
