@@ -1,8 +1,9 @@
-﻿using System.Dynamic;
+﻿using System.Linq;
 
 namespace Nancy.ViewEngines.Razor.Tests
 {
     using System;
+    using System.Dynamic;
     using System.IO;
     using FakeItEasy;
     using Nancy.Tests;
@@ -13,6 +14,8 @@ namespace Nancy.ViewEngines.Razor.Tests
         private readonly RazorViewEngine engine;
         private readonly IRenderContext renderContext;
         private readonly IRazorConfiguration configuration;
+        private readonly FileSystemViewLocationProvider fileSystemViewLocationProvider;
+        private readonly IRootPathProvider rootPathProvider;
 
         public RazorViewCompilerFixture()
         {
@@ -29,6 +32,17 @@ namespace Nancy.ViewEngines.Razor.Tests
 
             this.renderContext = A.Fake<IRenderContext>();
             A.CallTo(() => this.renderContext.ViewCache).Returns(cache);
+            A.CallTo(() => this.renderContext.LocateView(A<string>.Ignored, null))
+                .ReturnsLazily(x =>
+                {
+                    var viewName = x.GetArgument<string>(0);
+                    return FindViewLocationResult(viewName); ;
+                });
+
+            this.rootPathProvider = A.Fake<IRootPathProvider>();
+            A.CallTo(() => this.rootPathProvider.GetRootPath()).Returns(Path.Combine(Environment.CurrentDirectory, "TestViews"));
+
+            this.fileSystemViewLocationProvider = new FileSystemViewLocationProvider(this.rootPathProvider, new DefaultFileSystemReader());
         }
 
         [Fact]
@@ -83,7 +97,7 @@ namespace Nancy.ViewEngines.Razor.Tests
         }
 
         [Fact]
-        public void Should_support_files_with_the_liquid_extensions()
+        public void Should_support_files_with_the_razor_extensions()
         {
             // Given, When
             var extensions = this.engine.Extensions;
@@ -119,6 +133,33 @@ namespace Nancy.ViewEngines.Razor.Tests
             stream.ShouldEqual("<h1>Hello Mr. test</h1>");
         }
 
-        //add more tests for sections
+        [Fact]
+        public void Should_be_able_to_render_view_with_layout_to_stream()
+        {
+            // Given
+            var location = FindViewLocationResult("ViewThatUsesLayout");
+
+            var stream = new MemoryStream();
+            
+            // When
+            var response = this.engine.RenderView(location, null, this.renderContext);
+            response.Contents.Invoke(stream);
+
+            // Then
+            string output;
+            stream.Position = 0;
+            using (var reader = new StreamReader(stream))
+            {
+                output = reader.ReadToEnd();
+            }
+
+            output.ShouldContainInOrder("<h1>SimplyLayout</h1>", "<div>ViewThatUsesLayout</div>");
+        }
+
+        private ViewLocationResult FindViewLocationResult(string viewName)
+        {
+            var location = this.fileSystemViewLocationProvider.GetLocatedViews(new[] {"cshtml"}).First(r => r.Name == viewName);
+            return location;
+        }
     }
 }
