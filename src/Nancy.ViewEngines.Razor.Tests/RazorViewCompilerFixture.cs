@@ -1,10 +1,9 @@
-﻿using System.Linq;
-
-namespace Nancy.ViewEngines.Razor.Tests
+﻿namespace Nancy.ViewEngines.Razor.Tests
 {
     using System;
     using System.Dynamic;
     using System.IO;
+    using System.Linq;
     using FakeItEasy;
     using Nancy.Tests;
     using Xunit;
