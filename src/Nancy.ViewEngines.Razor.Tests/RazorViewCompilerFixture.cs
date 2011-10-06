@@ -32,11 +32,11 @@ namespace Nancy.ViewEngines.Razor.Tests
 
             this.renderContext = A.Fake<IRenderContext>();
             A.CallTo(() => this.renderContext.ViewCache).Returns(cache);
-            A.CallTo(() => this.renderContext.LocateView(A<string>.Ignored, null))
+            A.CallTo(() => this.renderContext.LocateView(A<string>.Ignored, A<object>.Ignored))
                 .ReturnsLazily(x =>
                 {
                     var viewName = x.GetArgument<string>(0);
-                    return FindViewLocationResult(viewName); ;
+                    return FindView(viewName); ;
                 });
 
             this.rootPathProvider = A.Fake<IRootPathProvider>();
@@ -137,28 +137,110 @@ namespace Nancy.ViewEngines.Razor.Tests
         public void Should_be_able_to_render_view_with_layout_to_stream()
         {
             // Given
-            var location = FindViewLocationResult("ViewThatUsesLayout");
+            var location = FindView("ViewThatUsesLayout");
 
             var stream = new MemoryStream();
-            
+
             // When
             var response = this.engine.RenderView(location, null, this.renderContext);
             response.Contents.Invoke(stream);
 
             // Then
-            string output;
-            stream.Position = 0;
-            using (var reader = new StreamReader(stream))
-            {
-                output = reader.ReadToEnd();
-            }
-
+            string output = ReadAll(stream);
             output.ShouldContainInOrder("<h1>SimplyLayout</h1>", "<div>ViewThatUsesLayout</div>");
         }
 
-        private ViewLocationResult FindViewLocationResult(string viewName)
+        [Fact]
+        public void Should_be_able_to_render_view_with_model_and_layout_to_stream()
         {
-            var location = this.fileSystemViewLocationProvider.GetLocatedViews(new[] {"cshtml"}).First(r => r.Name == viewName);
+            // Given
+            var location = FindView("ViewThatUsesLayoutAndModel");
+
+            var stream = new MemoryStream();
+
+            dynamic model = new ExpandoObject();
+            model.Name = "my test";
+
+            // When
+            var response = this.engine.RenderView(location, model, this.renderContext);
+            response.Contents.Invoke(stream);
+
+            // Then
+            string output = ReadAll(stream);
+            output.ShouldContainInOrder("<h1>SimplyLayout</h1>", "<div>ViewThatUsesLayoutAndModel: my test</div>");
+        }
+
+        [Fact]
+        public void Should_be_able_to_render_view_with_layout_and_section_to_stream()
+        {
+            // Given
+            var location = FindView("ViewThatUsesLayoutAndSection");
+
+            var stream = new MemoryStream();
+
+            // When
+            var response = this.engine.RenderView(location, null, this.renderContext);
+            response.Contents.Invoke(stream);
+
+            // Then
+            string output = ReadAll(stream);
+            output.ShouldContainInOrder("<h1>SimplyLayout</h1>",
+                                        "<div>First section in ViewThatUsesLayoutAndSection</div>",
+                                        "<div>ViewThatUsesLayoutAndSection</div>");
+        }
+
+
+        [Fact]
+        public void Should_be_able_to_render_view_with_layout_and_many_sections_to_stream()
+        {
+            // Given
+            var location = FindView("ViewThatUsesLayoutAndManySection");
+
+            var stream = new MemoryStream();
+
+            // When
+            var response = this.engine.RenderView(location, null, this.renderContext);
+            response.Contents.Invoke(stream);
+
+            // Then
+            string output = ReadAll(stream);
+            output.ShouldContainInOrder("<h1>SimplyLayout</h1>",
+                                        "<div>First section in ViewThatUsesLayoutAndManySection</div>",
+                                        "<div>Second section in ViewThatUsesLayoutAndManySection</div>",
+                                        "<div>ViewThatUsesLayoutAndManySection</div>",
+                                        "<div>Third section in ViewThatUsesLayoutAndManySection</div>");
+        }
+
+        [Fact]
+        public void Should_be_able_to_render_view_with_layout_and_optional_section_to_stream()
+        {
+            // Given
+            var location = FindView("ViewThatUsesLayoutAndOptionalSection");
+
+            var stream = new MemoryStream();
+
+            // When
+            var response = this.engine.RenderView(location, null, this.renderContext);
+            response.Contents.Invoke(stream);
+
+            // Then
+            string output = ReadAll(stream);
+            output.ShouldContainInOrder("<h1>SimplyLayout</h1>",
+                                        "<div>ViewThatUsesLayoutAndOptionalSection</div>");
+        }
+
+        private string ReadAll(Stream stream)
+        {
+            stream.Position = 0;
+            using (var reader = new StreamReader(stream))
+            {
+                return reader.ReadToEnd();
+            }
+        }
+
+        private ViewLocationResult FindView(string viewName)
+        {
+            var location = this.fileSystemViewLocationProvider.GetLocatedViews(new[] { "cshtml" }).First(r => r.Name == viewName);
             return location;
         }
     }

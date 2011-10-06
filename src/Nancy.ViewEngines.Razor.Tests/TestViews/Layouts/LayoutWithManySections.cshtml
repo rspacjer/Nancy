@@ -6,7 +6,16 @@
 	<body>
 	<h1>SimplyLayout</h1>
 	<div>
+		@RenderSection("FirstSection")
+	</div>
+	<div>
+		@RenderSection("SecondSection")
+	</div>
+	<div>
 		@RenderBody()
 	</div>	
+	<div>
+		@RenderSection("ThirdSection")
+	</div>
 	</body>
 </html>
